@@ -17,6 +17,8 @@ public static class Database {
 
 	public static void WriteEntry (string name, string tags, string content) {
 		
+		EnsureDatabase();
+		
 		//clear old version if it exists
 		if (File.Exists("database/entries/" + name)) File.Delete("database/entries/" + name);
 		
@@ -26,24 +28,30 @@ public static class Database {
 		//write tags
 		foreach (string tag in tags.Split(',')) {
 			
+			if (tag == "") continue;
+			
 			if (File.Exists("database/tag/" + tag)) { 
 				
-				File.WriteAllText("database/tag/" + tag, name);
+				File.AppendAllText("database/tag/" + tag, Environment.NewLine + name);
 			
 			} else {
 				
-				File.AppendAllText("database/tag/" + tag, Environment.NewLine + name);
+				File.WriteAllText("database/tag/" + tag, name);
 			}
 		}
 	}
 	
 	public static string[] ReadEntry (string name) {
 		
+		EnsureDatabase();
+		
 		//Check the Existance, read & return, either nothing, or the correct value, in a single line.. because screw oderliness I suppose..
 		return File.Exists("database/entries/" + name) ? File.ReadAllLines("database/entries/" + name) : new string[] { "404" };
 	}
 	
 	public static string[] Search (string query) {
+		
+		EnsureDatabase();
 		
 		List<string> results = new List<string>();
 		
@@ -54,16 +62,28 @@ public static class Database {
 		foreach (string file in Directory.GetFiles("database/entries/", "*")) {
 			
 			string[] parts = file.Split('/');
-			results.Add(parts[parts.Length - 1]);
+			string entryName = parts[parts.Length - 1];
+			foreach (string term in terms)
+				if (entryName.Contains(term))
+					results.Add(entryName);
 		}
 		
 		//search tags
 		foreach (string file in Directory.GetFiles("database/tag/", "*")) {
 			
-			foreach (string line in File.ReadAllLines(file)) {
+			string[] parts = file.Split('/');
+			string tag = parts[parts.Length - 1];
+			
+			bool c = false;
+			
+			foreach (string term in terms)
+				if (tag.Contains(term)) c = true;
 				
-				results.Add(line);
-			}
+			if (c)			
+				foreach (string line in File.ReadAllLines(file)) {
+					
+					results.Add(line);
+				}
 		}
 		
 		return results.ToArray();

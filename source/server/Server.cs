@@ -5,6 +5,7 @@ using System.Net.Sockets;
 using System.Text;
 using System.Security.Cryptography;
 using System.IO;
+using System.Threading;
 
 public static class Server {
 
@@ -19,7 +20,7 @@ public static class Server {
 
         Console.WriteLine("Starting Server..");
 
-        listener = new TcpListener(IPAddress.Any, 1122);
+        listener = new TcpListener(IPAddress.Any, 40001);
 
         try {
 
@@ -84,7 +85,7 @@ public static class Server {
 
     private static bool CheckPasskey (string hashToCheck) {
 
-        string input = File.Exists("passkey.txt") ? File.ReadAllLines("passkey.txt")[0] : "acflin";
+        string input = File.Exists("passkey.txt") ? File.ReadAllLines("passkey.txt")[0] : "gdar0x";
 
         HashAlgorithm algorithm = SHA256.Create();
         byte[] hashedData = algorithm.ComputeHash(Encoding.Unicode.GetBytes(input));
@@ -103,16 +104,7 @@ public static class Server {
 		stream.Read(recvBuffer, 0, 4);
 		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
 		stream.Read(recvBuffer, 0, recvBuffer.Length);
-		string useragent = Encoding.Unicode.GetString(recvBuffer);
-
-		//recv authentication
-		recvBuffer = new byte[4];
-		stream.Read(recvBuffer, 0, 4);
-		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
-		stream.Read(recvBuffer, 0, recvBuffer.Length);
-
-		if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
-		
+		string useragent = Encoding.Unicode.GetString(recvBuffer);		
 		
 		//recv entry name
 		recvBuffer = new byte[4];
@@ -131,9 +123,21 @@ public static class Server {
 		//recv entry content
 		recvBuffer = new byte[4];
 		stream.Read(recvBuffer, 0, 4);
-		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
-		stream.Read(recvBuffer, 0, recvBuffer.Length);
-		string entryContent = Encoding.Unicode.GetString(recvBuffer);
+		int lineCount = BitConverter.ToInt32(recvBuffer, 0);
+		string entryContent = "";//Console.WriteLine(lineCount);
+		for (int i = 0; i < lineCount; ++i) {
+			
+			recvBuffer = new byte[4];
+			stream.Read(recvBuffer, 0, 4);
+			recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];//Console.WriteLine(recvBuffer.Length);
+			stream.Read(recvBuffer, 0, recvBuffer.Length);
+			
+			entryContent += Encoding.Unicode.GetString(recvBuffer) + "\n";
+			
+			Thread.Sleep(10);
+		}
+			
+		//stream.Write(new byte[1]{69}, 0, 1);
 		
 		Database.WriteEntry(entryName, entryTags, entryContent);
 		
@@ -148,15 +152,6 @@ public static class Server {
 		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
 		stream.Read(recvBuffer, 0, recvBuffer.Length);
 		string useragent = Encoding.Unicode.GetString(recvBuffer);
-
-		//recv authentication
-		recvBuffer = new byte[4];
-		stream.Read(recvBuffer, 0, 4);
-		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
-		stream.Read(recvBuffer, 0, recvBuffer.Length);
-
-		if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
-		
 		
 		//recv entry name
 		recvBuffer = new byte[4];
@@ -176,9 +171,9 @@ public static class Server {
 			byte[] sendBuffer = Encoding.Unicode.GetBytes(line);
 			stream.Write(BitConverter.GetBytes(sendBuffer.Length));
 			stream.Write(sendBuffer, 0, sendBuffer.Length);
-			
-			stream.Read(recvBuffer, 0, 1); //recv confirmation
 		}
+			
+		//stream.Read(recvBuffer, 0, 1); //recv confirmation
 		
 		Console.WriteLine(useragent + ": was sent entry: '" + entryName + "', size of: " + content.Length);
 	}
@@ -191,15 +186,6 @@ public static class Server {
 		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
 		stream.Read(recvBuffer, 0, recvBuffer.Length);
 		string useragent = Encoding.Unicode.GetString(recvBuffer);
-
-		//recv authentication
-		recvBuffer = new byte[4];
-		stream.Read(recvBuffer, 0, 4);
-		recvBuffer = new byte[BitConverter.ToInt32(recvBuffer, 0)];
-		stream.Read(recvBuffer, 0, recvBuffer.Length);
-
-		if (!CheckPasskey(Encoding.Unicode.GetString(recvBuffer))) return;
-		
 		
 		//recv query
 		recvBuffer = new byte[4];
@@ -216,12 +202,14 @@ public static class Server {
 		stream.Write(BitConverter.GetBytes(matches.Length));
 		foreach (string match in matches) {
 			
+			Console.WriteLine(match);
+			
 			byte[] sendBuffer = Encoding.Unicode.GetBytes(match);
 			stream.Write(BitConverter.GetBytes(sendBuffer.Length));
 			stream.Write(sendBuffer, 0, sendBuffer.Length);
-			
-			stream.Read(recvBuffer, 0, 1); //recv confirmation
 		}
+			
+		//stream.Read(recvBuffer, 0, 1); //recv confirmation
 		
 		Console.WriteLine(useragent + ": searched: '" + query + "', amount of results: " + matches.Length);
 	}
